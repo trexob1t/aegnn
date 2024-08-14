@@ -43,6 +43,10 @@ environment variable. To run our training pipeline:
 ```
 python3 aegnn/scripts/train.py graph_res --task recognition --dataset dataset --gpu X --batch-size X --dim 3
 ```
+For my system:
+```
+python aegnn/scripts/train.py graph_res --task recognition --dataset ncars --gpu 5 --batch-size 64 --dim 3 --num-workers 8 
+```
 with tasks `recognition` or `detection`. A list of configuration arguments can be found by calling the `--help` flag. 
 To evaluate the detection pipeline, compute the mAP score on the whole test dataset by running: 
 ```
