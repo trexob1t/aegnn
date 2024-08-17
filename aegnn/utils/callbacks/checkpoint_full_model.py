@@ -12,7 +12,8 @@ class FullModelCheckpoint(pl.callbacks.ModelCheckpoint):
         if trainer.should_rank_save_checkpoint and trainer.global_rank == 0:
             self._fs.makedirs(os.path.dirname(filepath), exist_ok=True)
 
-        trainer.accelerator.barrier() # Ensure all gpus wait until directory is made and then save model
-
-        torch.save(trainer.model.state_dict(), filepath)
-        logging.debug(f"Save model checkpoint @ {filepath}")
+            torch.save(trainer.model.state_dict(), filepath)
+            logging.debug(f"Save model checkpoint @ {filepath}")
+            
+        # Ensure all processes wait until the checkpoint is saved
+        trainer.accelerator.barrier()
