@@ -75,11 +75,11 @@ class DetectionModel(pl.LightningModule):
 
         # Log individual losses and metrics
         for name, value in losses_dict.items():
-            self.log(f"Train/Loss-{name.capitalize()}", value, on_step=True, on_epoch=True, prog_bar=True)
+            self.log(f"Train/Loss-{name.capitalize()}", value, on_step=True, on_epoch=True)
         
-        self.log("Train/IOU", iou.mean(), on_step=True, on_epoch=True, prog_bar=True)
-        self.log("Train/Accuracy", train_accuracy, on_step=True, on_epoch=True, prog_bar=True)
-        self.log("Train/mAP", train_map, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("Train/IOU", iou.mean(), on_step=True, on_epoch=True)
+        self.log("Train/Accuracy", train_accuracy, on_step=True, on_epoch=True)
+        self.log("Train/mAP", train_map, on_step=True, on_epoch=True)
         
         return loss
 
@@ -97,10 +97,10 @@ class DetectionModel(pl.LightningModule):
             val_map = compute_map(detected_bbox, gt_bbox=gt_bb.detach().cpu(), gt_batch=gt_batch)
 
         # Log metrics directly during the validation step
-        self.log("Val/Loss", loss, prog_bar=True, sync_dist=True)
-        self.log("Val/IOU", iou.mean(), prog_bar=True, sync_dist=True)
-        self.log("Val/Accuracy", val_accuracy, prog_bar=True, sync_dist=True)
-        self.log("Val/mAP", val_map, prog_bar=True, sync_dist=True)
+        self.log("Val/Loss", loss, sync_dist=True)
+        self.log("Val/IOU", iou.mean(), sync_dist=True)
+        self.log("Val/Accuracy", val_accuracy, sync_dist=True)
+        self.log("Val/mAP", val_map, sync_dist=True)
         return outputs
 
     def configure_optimizers(self):
