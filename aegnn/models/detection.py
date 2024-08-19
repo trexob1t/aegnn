@@ -97,10 +97,10 @@ class DetectionModel(pl.LightningModule):
             val_map = compute_map(detected_bbox, gt_bbox=gt_bb.detach().cpu(), gt_batch=gt_batch)
 
         # Log metrics directly during the validation step
-        self.log("Val/Loss", loss, sync_dist=True)
-        self.log("Val/IOU", iou.mean(), sync_dist=True)
-        self.log("Val/Accuracy", val_accuracy, sync_dist=True)
-        self.log("Val/mAP", val_map, sync_dist=True)
+        self.log("Val/Loss", loss, on_step=True, on_epoch=True, sync_dist=True)
+        self.log("Val/IOU", iou.mean(), on_step=True, on_epoch=True, sync_dist=True)
+        self.log("Val/Accuracy", val_accuracy, on_step=True, on_epoch=True, sync_dist=True)
+        self.log("Val/mAP", val_map, on_step=True, on_epoch=True, sync_dist=True)
         return outputs
 
     def configure_optimizers(self):
