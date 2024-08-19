@@ -96,27 +96,12 @@ class DetectionModel(pl.LightningModule):
             val_accuracy = compute_detection_accuracy(detected_bbox, gt_y=batch.y.detach().cpu(), gt_batch=gt_batch)
             val_map = compute_map(detected_bbox, gt_bbox=gt_bb.detach().cpu(), gt_batch=gt_batch)
 
-        # Append to the validation log dictionary for accumulated logging on validation end.
-        self.__validation_logs["Loss"].append(loss.detach().cpu().item())
-        self.__validation_logs["IOU"].append(iou.detach().cpu().item())
-        self.__validation_logs["Accuracy"].append(val_accuracy)
-        self.__validation_logs["mAP"].append(val_map)
+        # Log metrics directly during the validation step
+        self.log("Val/Loss", loss, prog_bar=True, sync_dist=True)
+        self.log("Val/IOU", iou.mean(), prog_bar=True, sync_dist=True)
+        self.log("Val/Accuracy", val_accuracy, prog_bar=True, sync_dist=True)
+        self.log("Val/mAP", val_map, prog_bar=True, sync_dist=True)
         return outputs
-
-    def on_validation_end(self) -> None:
-        # Aggregate metrics
-        avg_loss = np.mean(self.__validation_logs["Loss"])
-        avg_iou = np.mean(self.__validation_logs["IOU"])
-        avg_accuracy = np.mean(self.__validation_logs["Accuracy"])
-        avg_map = np.mean(self.__validation_logs["mAP"])
-
-        # Log the aggregated metrics without sync_dist since they are already aggregated
-        self.log("Val/Loss", avg_loss)
-        self.log("Val/IOU", avg_iou)
-        self.log("Val/Accuracy", avg_accuracy)
-        self.log("Val/mAP", avg_map)
-        
-        self.__validation_logs = collections.defaultdict(list)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), weight_decay=1e-4, **self.optimizer_kwargs)
