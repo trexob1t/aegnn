@@ -73,8 +73,14 @@ class DetectionModel(pl.LightningModule):
         train_map = compute_map(detected_bbox, gt_bbox=gt_bb.detach().cpu(), gt_batch=gt_batch)
         metrics_logs = {"Train/Accuracy": train_accuracy, "Train/mAP": train_map}
 
-        # Send loss and evaluation metrics to logger for logging.
-        self.logger.log_metrics({"Train/Loss": loss, "Train/IOU": iou.mean(), **loss_logs, **metrics_logs})
+        # Log individual losses and metrics
+        for name, value in losses_dict.items():
+            self.log(f"Train/Loss-{name.capitalize()}", value, on_step=True, on_epoch=True, prog_bar=True)
+        
+        self.log("Train/IOU", iou.mean(), on_step=True, on_epoch=True, prog_bar=True)
+        self.log("Train/Accuracy", train_accuracy, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("Train/mAP", train_map, on_step=True, on_epoch=True, prog_bar=True)
+        
         return loss
 
     def validation_step(self, batch: torch_geometric.data.Batch, batch_idx: int) -> torch.Tensor:
@@ -98,8 +104,18 @@ class DetectionModel(pl.LightningModule):
         return outputs
 
     def on_validation_end(self) -> None:
-        metrics_logs = {f"Val/{key}": np.mean(values) for key, values in self.__validation_logs.items()}
-        self.logger.log_metrics(metrics_logs)
+        # Aggregate metrics
+        avg_loss = np.mean(self.__validation_logs["Loss"])
+        avg_iou = np.mean(self.__validation_logs["IOU"])
+        avg_accuracy = np.mean(self.__validation_logs["Accuracy"])
+        avg_map = np.mean(self.__validation_logs["mAP"])
+
+        # Log the aggregated metrics without sync_dist since they are already aggregated
+        self.log("Val/Loss", avg_loss)
+        self.log("Val/IOU", avg_iou)
+        self.log("Val/Accuracy", avg_accuracy)
+        self.log("Val/mAP", avg_map)
+        
         self.__validation_logs = collections.defaultdict(list)
 
     def configure_optimizers(self):
