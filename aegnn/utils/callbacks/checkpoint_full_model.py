@@ -13,8 +13,9 @@ class FullModelCheckpoint(pl.callbacks.ModelCheckpoint):
             self._fs.makedirs(os.path.dirname(filepath), exist_ok=True)
 
             #torch.save(trainer.model.state_dict(), filepath)
-            import joblib
-            joblib.dump(trainer.model, filepath)
+            import dill
+            with open(filepath, 'wb') as f:
+                dill.dump(trainer.model, f)
             logging.debug(f"Save model checkpoint @ {filepath}")
             
         # Ensure all processes wait until the checkpoint is saved
