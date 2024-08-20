@@ -20,6 +20,16 @@ class RecognitionModel(pl.LightningModule):
 
         model_input_shape = torch.tensor(img_shape + (dim, ), device=self.device)
         self.model = model_by_name(network)(dataset, model_input_shape, num_outputs=num_classes, **model_kwargs)
+        try:
+            filepath = '/data/models/pretrained.pt'
+            import dill
+            with open(filepath, 'rb') as f:
+                loaded_model = dill.load(f)
+                self.model = loaded_model.model  # Load the model from the serialized object
+                self.logging.info(f"Model loaded from {filepath}")
+        except Exception as e:
+            self.logging.error(f"Error loading model from {filepath}: {str(e)}")
+            raise
 
     def forward(self, data: torch_geometric.data.Batch) -> torch.Tensor:
         data.pos = data.pos[:, :self.dim]
