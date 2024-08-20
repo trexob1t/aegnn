@@ -38,6 +38,10 @@ class RecognitionModel(pl.LightningModule):
             print(f"Unable to load model:\n {str(e)}")
             raise
 
+        # Wrap in DistributedDataParallel again if necessary
+        if torch.distributed.is_initialized():
+            self.model = torch.nn.parallel.DistributedDataParallel(self.model)
+
     ###############################################################################################
     # Steps #######################################################################################
     ###############################################################################################

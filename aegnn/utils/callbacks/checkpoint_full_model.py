@@ -12,10 +12,12 @@ class FullModelCheckpoint(pl.callbacks.ModelCheckpoint):
         if trainer.should_rank_save_checkpoint:
             self._fs.makedirs(os.path.dirname(filepath), exist_ok=True)
 
-            #torch.save(trainer.model.state_dict(), filepath)
+            # Extract the underlying model from DistributedDataParallel if it is wrapped
+            model_to_save = trainer.model.module if isinstance(trainer.model, torch.nn.parallel.DistributedDataParallel) else trainer.model
+            
             import dill
             with open(filepath, 'wb') as f:
-                dill.dump(trainer.model, f)
+                dill.dump(model_to_save, f)
             logging.debug(f"Save model checkpoint @ {filepath}")
             
         # Ensure all processes wait until the checkpoint is saved
