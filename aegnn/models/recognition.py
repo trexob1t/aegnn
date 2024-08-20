@@ -21,6 +21,9 @@ class RecognitionModel(pl.LightningModule):
         model_input_shape = torch.tensor(img_shape + (dim, ), device=self.device)
         self.model = model_by_name(network)(dataset, model_input_shape, num_outputs=num_classes, **model_kwargs)
         try:
+            import torch.distributed as dist
+            dist.init_process_group(backend='nccl')
+            
             filepath = '/data/models/pretrained.pt'
             import dill
             with open(filepath, 'rb') as f:
