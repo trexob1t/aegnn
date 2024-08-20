@@ -39,7 +39,7 @@ class DetectionModel(pl.LightningModule):
         # Define network architecture by name.
         model_input_shape = torch.tensor(img_shape + (dim, ), device=self.device)
         self.model = model_by_name(network)(dataset, model_input_shape, num_outputs=num_outputs, **model_kwargs)
-
+        
         # Additional arguments for optimization and logging.
         self.optimizer_kwargs = dict(lr=learning_rate)
         self.__validation_logs = collections.defaultdict(list)
@@ -73,8 +73,14 @@ class DetectionModel(pl.LightningModule):
         train_map = compute_map(detected_bbox, gt_bbox=gt_bb.detach().cpu(), gt_batch=gt_batch)
         metrics_logs = {"Train/Accuracy": train_accuracy, "Train/mAP": train_map}
 
-        # Send loss and evaluation metrics to logger for logging.
-        self.logger.log_metrics({"Train/Loss": loss, "Train/IOU": iou.mean(), **loss_logs, **metrics_logs})
+        # Log individual losses and metrics
+        for name, value in losses_dict.items():
+            self.log(f"Train/Loss-{name.capitalize()}", value, on_step=True, on_epoch=True)
+        
+        self.log("Train/IOU", iou.mean(), on_step=True, on_epoch=True)
+        self.log("Train/Accuracy", train_accuracy, on_step=True, on_epoch=True)
+        self.log("Train/mAP", train_map, on_step=True, on_epoch=True)
+        
         return loss
 
     def validation_step(self, batch: torch_geometric.data.Batch, batch_idx: int) -> torch.Tensor:
@@ -90,17 +96,12 @@ class DetectionModel(pl.LightningModule):
             val_accuracy = compute_detection_accuracy(detected_bbox, gt_y=batch.y.detach().cpu(), gt_batch=gt_batch)
             val_map = compute_map(detected_bbox, gt_bbox=gt_bb.detach().cpu(), gt_batch=gt_batch)
 
-        # Append to the validation log dictionary for accumulated logging on validation end.
-        self.__validation_logs["Loss"].append(loss.detach().cpu().item())
-        self.__validation_logs["IOU"].append(iou.detach().cpu().item())
-        self.__validation_logs["Accuracy"].append(val_accuracy)
-        self.__validation_logs["mAP"].append(val_map)
+        # Log metrics directly during the validation step
+        self.log("Val/Loss", loss, on_step=True, on_epoch=True, sync_dist=True)
+        self.log("Val/IOU", iou.mean(), on_step=True, on_epoch=True, sync_dist=True)
+        self.log("Val/Accuracy", val_accuracy, on_step=True, on_epoch=True, sync_dist=True)
+        self.log("Val/mAP", val_map, on_step=True, on_epoch=True, sync_dist=True)
         return outputs
-
-    def on_validation_end(self) -> None:
-        metrics_logs = {f"Val/{key}": np.mean(values) for key, values in self.__validation_logs.items()}
-        self.logger.log_metrics(metrics_logs)
-        self.__validation_logs = collections.defaultdict(list)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), weight_decay=1e-4, **self.optimizer_kwargs)

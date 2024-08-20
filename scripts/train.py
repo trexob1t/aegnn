@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument("--log-gradients", action="store_true")
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--debug", action="store_true")
-    parser.add_argument("--gpu", default=None, type=int)
+    parser.add_argument("--gpus", type=int, nargs='+', default=None, help="List of GPUs to use for training")
 
     parser = aegnn.datasets.EventDataModule.add_argparse_args(parser)
     return parser.parse_args()
@@ -62,7 +62,12 @@ def main(args):
     ]
 
     trainer_kwargs = dict()
-    trainer_kwargs["gpus"] = [args.gpu] if args.gpu is not None else None
+    #trainer_kwargs["gpus"] = [args.gpu] if args.gpu is not None else None
+    trainer_kwargs["accelerator"] = "ddp"
+    trainer_kwargs["gpus"] = args.gpus if args.gpus is not None else None
+    from pytorch_lightning.plugins import DDPPlugin
+    trainer_kwargs["plugins"] = DDPPlugin(find_unused_parameters=False)
+    #
     trainer_kwargs["profiler"] = "simple" if args.profile else False
     trainer_kwargs["weights_summary"] = "full"
     trainer_kwargs["track_grad_norm"] = 2 if args.log_gradients else -1
