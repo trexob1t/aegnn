@@ -20,24 +20,23 @@ class RecognitionModel(pl.LightningModule):
 
         model_input_shape = torch.tensor(img_shape + (dim, ), device=self.device)
         self.model = model_by_name(network)(dataset, model_input_shape, num_outputs=num_classes, **model_kwargs)
-        try:
-            import torch.distributed as dist
-            dist.init_process_group(backend='nccl')
-            
-            filepath = '/data/models/pretrained.pt'
-            import dill
-            with open(filepath, 'rb') as f:
-                loaded_model = dill.load(f)
-                self.model = loaded_model.model  # Load the model from the serialized object
-                self.logging.info(f"Model loaded from {filepath}")
-        except Exception as e:
-            self.logging.error(f"Error loading model from {filepath}: {str(e)}")
-            raise
 
     def forward(self, data: torch_geometric.data.Batch) -> torch.Tensor:
         data.pos = data.pos[:, :self.dim]
         data.edge_attr = data.edge_attr[:, :self.dim]
         return self.model.forward(data)
+    
+    def on_fit_start(self):
+        try:
+            import dill
+            checkpoint_path = "/data/models/pretrained.pt"
+            with open(checkpoint_path, 'rb') as f:
+                loaded_model = dill.load(f)
+                self.model = loaded_model
+                print("Model loaded successfully!")
+        except Exception as e:
+            print(f"Unable to load model:\n {str(e)}")
+            raise
 
     ###############################################################################################
     # Steps #######################################################################################
