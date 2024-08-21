@@ -4,6 +4,8 @@ import pytorch_lightning as pl
 from torch.nn.parallel import DistributedDataParallel
 
 def save_model(trainer, filepath):
+    from aegnn.models import RecognitionModel, DetectionModel
+    
     # Start with the full model
     model_to_save = trainer.model
 
@@ -12,8 +14,10 @@ def save_model(trainer, filepath):
         model_to_save = model_to_save.module  # This removes the DDP wrapper
 
     # Unwrap from LightningDistributedModule if necessary
-    if hasattr(model_to_save, '_forward_module'):
-        model_to_save = model_to_save._forward_module
+    # Ensure that you only unwrap the LightningDistributedModule, not the RecognitionModel itself
+    if isinstance(model_to_save, pl.LightningModule) and not isinstance(model_to_save, (RecognitionModel, DetectionModel)):
+        if hasattr(model_to_save, 'module'):
+            model_to_save = model_to_save.module  # Unwrap only the LightningDistributedModule
 
     # Now, model_to_save should be the RecognitionModel or DetectionModel itself
     with open(filepath, 'wb') as f:
