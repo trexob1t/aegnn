@@ -74,16 +74,23 @@ def main(args):
 
     trainer_kwargs = dict()
     #
+    trainer_kwargs = {}
+
+    # Set GPU configuration
     if args.gpus is not None and len(args.gpus) > 1:
         # Use DDP for multi-GPU training
-        trainer_kwargs["accelerator"] = "ddp"
+        trainer_kwargs["accelerator"] = "gpu"
+        trainer_kwargs["strategy"] = "ddp"
         from pytorch_lightning.plugins import DDPPlugin
         trainer_kwargs["plugins"] = DDPPlugin(find_unused_parameters=False)
+    elif args.gpus is not None and len(args.gpus) == 1:
+        # Single GPU training
+        trainer_kwargs["accelerator"] = "gpu"
     else:
-        # No DDP for single-GPU training
-        trainer_kwargs["accelerator"] = None
-    
-    trainer_kwargs["gpus"] = args.gpus if args.gpus is not None else None
+        # CPU training
+        trainer_kwargs["accelerator"] = "cpu"
+
+    trainer_kwargs["devices"] = args.gpus if args.gpus is not None else 1  # Use the specified GPUs or default to 1 device
     #
     trainer_kwargs["profiler"] = "simple" if args.profile else False
     trainer_kwargs["weights_summary"] = "full"
