@@ -14,10 +14,9 @@ def save_model(trainer, filepath):
         model_to_save = model_to_save.module  # This removes the DDP wrapper
 
     # Unwrap from LightningDistributedModule if necessary
-    # Ensure that you only unwrap the LightningDistributedModule, not the RecognitionModel itself
-    if isinstance(model_to_save, pl.LightningModule) and not isinstance(model_to_save, (RecognitionModel, DetectionModel)):
-        if hasattr(model_to_save, 'module'):
-            model_to_save = model_to_save.module  # Unwrap only the LightningDistributedModule
+    # We need to check if we're dealing with the specific LightningDistributedModule class
+    if type(model_to_save).__name__ == 'LightningDistributedModule':
+        model_to_save = model_to_save.module  # Unwrap the LightningDistributedModule
 
     # Now, model_to_save should be the RecognitionModel or DetectionModel itself
     with open(filepath, 'wb') as f:
