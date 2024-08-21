@@ -15,8 +15,6 @@ from .utils.map import compute_map
 from .utils.yolo import yolo_grid
 from .networks import by_name as model_by_name
 
-from aegnn.utils.callbacks.model_io import load_model
-
 class DetectionModel(pl.LightningModule):
 
     __lambda_coord = 2
@@ -24,7 +22,7 @@ class DetectionModel(pl.LightningModule):
     __lambda_class = 1
 
     def __init__(self, network: str, dataset: str, num_classes: int, img_shape: Tuple[int, int], dim: int = 3,
-                 num_bounding_boxes: int = 1, learning_rate: float = 1e-3, checkpoint: str = None,**model_kwargs):
+                 num_bounding_boxes: int = 1, learning_rate: float = 1e-3, **model_kwargs):
         super(DetectionModel, self).__init__()
 
         # Define the YOLO detection grid as the model's outputs.
@@ -39,13 +37,7 @@ class DetectionModel(pl.LightningModule):
 
         # Define network architecture by name.
         model_input_shape = torch.tensor(img_shape + (dim, ), device=self.device)
-        self.model = None
-
-        if checkpoint is not None:
-            self.model = load_model(checkpoint)
-            print("Model loaded successfully!")
-        else:
-            self.model = model_by_name(network)(dataset, model_input_shape, num_outputs=num_classes, **model_kwargs)
+        self.model = model_by_name(network)(dataset, model_input_shape, num_outputs=num_classes, **model_kwargs)
         
         # Additional arguments for optimization and logging.
         self.optimizer_kwargs = dict(lr=learning_rate)

@@ -18,11 +18,7 @@ def save_model(trainer, filepath):
     if isinstance(model_to_save, pl.LightningModule):
         model_to_save = model_to_save.model  # This unwraps LightningDistributedModule
 
-    # Unwrap from RecognitionModel to get the core GraphRes model
-    if isinstance(model_to_save, (RecognitionModel, DetectionModel)):
-        model_to_save = model_to_save.model  # This unwraps RecognitionModel
-
-    # Save the core GraphRes model
+    # Save the Detection or Recognition model
     with open(filepath, 'wb') as f:
         dill.dump(model_to_save, f)
 

@@ -44,8 +44,16 @@ def main(args):
 
     dm = aegnn.datasets.by_name(args.dataset).from_argparse_args(args)
     dm.setup()
-    model = aegnn.models.by_task(args.task)(args.model, args.dataset, num_classes=dm.num_classes,
-                                            img_shape=dm.dims, dim=args.dim, bias=True, root_weight=True, checkpoint=args.checkpoint)
+    
+    model = None
+
+    if args.checkpoint is not None:
+        from aegnn.utils.callbacks.model_io import load_model
+
+        model = load_model(args.checkpoint)
+    else:
+        model = aegnn.models.by_task(args.task)(args.model, args.dataset, num_classes=dm.num_classes,
+                                            img_shape=dm.dims, dim=args.dim, bias=True, root_weight=True)
 
     if not args.debug:
         wandb_logger = pl.loggers.WandbLogger(project=project, save_dir=log_dir, settings=log_settings)
