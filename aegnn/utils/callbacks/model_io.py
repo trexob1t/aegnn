@@ -3,10 +3,10 @@ import torch
 import pytorch_lightning as pl
 from torch.nn.parallel import DistributedDataParallel
 
-# Import the RecognitionModel and LightningDistributedModule
-from aegnn.models import RecognitionModel, DetectionModel
-
 def save_model(trainer, filepath):
+    # Import the RecognitionModel and LightningDistributedModule
+    from aegnn.models import RecognitionModel, DetectionModel
+
     # Start with the full model
     model_to_save = trainer.model
 
@@ -19,7 +19,7 @@ def save_model(trainer, filepath):
         model_to_save = model_to_save.model  # This unwraps LightningDistributedModule
 
     # Unwrap from RecognitionModel to get the core GraphRes model
-    if isinstance(model_to_save, RecognitionModel) or isinstance(model_to_save, DetectionModel):
+    if isinstance(model_to_save, (RecognitionModel, DetectionModel)):
         model_to_save = model_to_save.model  # This unwraps RecognitionModel
 
     # Save the core GraphRes model
