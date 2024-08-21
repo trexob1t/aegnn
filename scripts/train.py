@@ -76,7 +76,7 @@ def main(args):
     #
     # Set GPU configuration
     if args.gpus is not None and len(args.gpus) > 1:
-        trainer_kwargs["accelerator"] = "gpu"  # Specify that you're using GPUs
+        trainer_kwargs["accelerator"] = "ddp"  # Specify that you're using GPUs
         trainer_kwargs["gpus"] = args.gpus  # Specify the GPUs to use
         from pytorch_lightning.plugins import DDPPlugin
         trainer_kwargs["plugins"] = DDPPlugin(find_unused_parameters=False)  # Use DDPPlugin for distributed training
