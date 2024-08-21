@@ -7,11 +7,13 @@ from torch.nn.functional import softmax
 from typing import Tuple
 from .networks import by_name as model_by_name
 
+from aegnn.utils.callbacks.model_io import load_model
+
 
 class RecognitionModel(pl.LightningModule):
 
     def __init__(self, network, dataset: str, num_classes, img_shape: Tuple[int, int],
-                 dim: int = 3, learning_rate: float = 5e-3, **model_kwargs):
+                 dim: int = 3, learning_rate: float = 5e-3, checkpoint: str = None,**model_kwargs):
         super(RecognitionModel, self).__init__()
         self.optimizer_kwargs = dict(lr=learning_rate)
         self.criterion = torch.nn.CrossEntropyLoss()
@@ -19,28 +21,19 @@ class RecognitionModel(pl.LightningModule):
         self.dim = dim
 
         model_input_shape = torch.tensor(img_shape + (dim, ), device=self.device)
-        self.model = model_by_name(network)(dataset, model_input_shape, num_outputs=num_classes, **model_kwargs)
+        self.model = None
+
+        if checkpoint is not None:
+            self.model = load_model(checkpoint)
+            print("Model loaded successfully!")
+        else:
+            self.model = model_by_name(network)(dataset, model_input_shape, num_outputs=num_classes, **model_kwargs)
 
     def forward(self, data: torch_geometric.data.Batch) -> torch.Tensor:
         data.pos = data.pos[:, :self.dim]
         data.edge_attr = data.edge_attr[:, :self.dim]
         return self.model.forward(data)
-    
-    def on_fit_start(self):
-        try:
-            import dill
-            checkpoint_path = "/data/models/pretrained.pt"
-            with open(checkpoint_path, 'rb') as f:
-                loaded_model = dill.load(f)
-                self.model = loaded_model
-                print("Model loaded successfully!")
-        except Exception as e:
-            print(f"Unable to load model:\n {str(e)}")
-            raise
 
-        # Wrap in DistributedDataParallel again if necessary
-        if torch.distributed.is_initialized():
-            self.model = torch.nn.parallel.DistributedDataParallel(self.model)
 
     ###############################################################################################
     # Steps #######################################################################################

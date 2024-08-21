@@ -15,6 +15,9 @@ def parse_args():
     parser.add_argument("--dim", type=int, help="Dimensionality of input data", default=3)
     parser.add_argument("--seed", default=12345, type=int)
 
+    # Add this line to include a checkpoint argument
+    parser.add_argument("--checkpoint", type=str, default=None, help="Path to a specific checkpoint to load")
+
     group = parser.add_argument_group("Trainer")
     group.add_argument("--max-epochs", default=150, type=int)
     group.add_argument("--overfit-batches", default=0.0, type=int)
@@ -42,7 +45,7 @@ def main(args):
     dm = aegnn.datasets.by_name(args.dataset).from_argparse_args(args)
     dm.setup()
     model = aegnn.models.by_task(args.task)(args.model, args.dataset, num_classes=dm.num_classes,
-                                            img_shape=dm.dims, dim=args.dim, bias=True, root_weight=True)
+                                            img_shape=dm.dims, dim=args.dim, bias=True, root_weight=True, checkpoint=args.checkpoint)
 
     if not args.debug:
         wandb_logger = pl.loggers.WandbLogger(project=project, save_dir=log_dir, settings=log_settings)
