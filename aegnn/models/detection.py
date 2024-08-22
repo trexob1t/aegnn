@@ -37,7 +37,7 @@ class DetectionModel(pl.LightningModule):
 
         # Define network architecture by name.
         model_input_shape = torch.tensor(img_shape + (dim, ), device=self.device)
-        self.model = model_by_name(network)(dataset, model_input_shape, num_outputs=num_classes, **model_kwargs)
+        self.model = model_by_name(network)(dataset, model_input_shape, num_outputs=num_outputs, **model_kwargs)
         
         # Additional arguments for optimization and logging.
         self.optimizer_kwargs = dict(lr=learning_rate)
