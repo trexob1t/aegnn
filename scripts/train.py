@@ -50,7 +50,7 @@ def main(args):
     if args.checkpoint is not None:
         from aegnn.utils.callbacks.model_io import load_model
 
-        model = load_model(args.checkpoint)
+        model = load_model(args=args, dm=dm)
     else:
         model = aegnn.models.by_task(args.task)(args.model, args.dataset, num_classes=dm.num_classes,
                                             img_shape=dm.dims, dim=args.dim, bias=True, root_weight=True)
