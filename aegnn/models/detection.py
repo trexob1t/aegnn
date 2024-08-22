@@ -103,7 +103,10 @@ class DetectionModel(pl.LightningModule):
         return outputs
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), weight_decay=1e-4, **self.optimizer_kwargs)
+        optimizer = torch.optim.Adam(self.parameters(), weight_decay=1e-4, **self.optimizer_kwargs)
+        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
+
+        return [optimizer], [lr_scheduler]
 
     ###############################################################################################
     # Parsing #####################################################################################
