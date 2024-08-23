@@ -104,30 +104,15 @@ class DetectionModel(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), weight_decay=1e-4, **self.optimizer_kwargs)
-
-        onecycle_epochs = 8  # Example for using OneCycleLR for the first 8 epochs
-        scheduler1 = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=0.01,  # Use the max learning rate defined in the model
-            steps_per_epoch=len(self.trainer.datamodule.train_dataloader()),
-            epochs=onecycle_epochs
-        )
         
-        scheduler2 = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2, verbose=True)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2, verbose=True)
 
         return {
             'optimizer': optimizer,
             'lr_scheduler': [
                 {
-                    'scheduler': scheduler1,
-                    'interval': 'step',  # Apply at every step
-                    'frequency': 1,  # Apply every step
-                },
-                {
-                    'scheduler': scheduler2,
+                    'scheduler': scheduler,
                     'monitor': 'Val/Loss',  # Monitor validation loss
-                    'interval': 'epoch',  # Check after each epoch
-                    'frequency': 1,  # Apply every epoch
                 }
             ],
         }

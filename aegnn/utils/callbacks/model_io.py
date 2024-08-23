@@ -20,6 +20,7 @@ def load_model(args, dm):
                                                 num_classes=dm.num_classes,
                                                 img_shape=dm.dims,
                                                 dim=args.dim,
+                                                learning_rate=args.lr,
                                                 bias=True,
                                                 root_weight=True)
         
@@ -31,6 +32,7 @@ def load_model(args, dm):
                             num_classes=dm.num_classes,
                             img_shape=dm.dims,
                             dim=args.dim,
+                            learning_rate=args.lr,
                             bias=True,
                             root_weight=True)
     
