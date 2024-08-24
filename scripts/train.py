@@ -15,6 +15,9 @@ def parse_args():
     parser.add_argument("--dim", type=int, help="Dimensionality of input data", default=3)
     parser.add_argument("--seed", default=12345, type=int)
 
+    # Add this line to include a checkpoint argument
+    parser.add_argument("--checkpoint", type=str, default=None, help="Path to a specific checkpoint to load")
+
     group = parser.add_argument_group("Trainer")
     group.add_argument("--max-epochs", default=150, type=int)
     group.add_argument("--overfit-batches", default=0.0, type=int)
@@ -41,7 +44,15 @@ def main(args):
 
     dm = aegnn.datasets.by_name(args.dataset).from_argparse_args(args)
     dm.setup()
-    model = aegnn.models.by_task(args.task)(args.model, args.dataset, num_classes=dm.num_classes,
+    
+    model = None
+
+    if args.checkpoint is not None:
+        from aegnn.utils.callbacks.model_io import load_model
+
+        model = load_model(args=args, dm=dm)
+    else:
+        model = aegnn.models.by_task(args.task)(args.model, args.dataset, num_classes=dm.num_classes,
                                             img_shape=dm.dims, dim=args.dim, bias=True, root_weight=True)
 
     if not args.debug:
@@ -62,11 +73,19 @@ def main(args):
     ]
 
     trainer_kwargs = dict()
-    #trainer_kwargs["gpus"] = [args.gpu] if args.gpu is not None else None
-    trainer_kwargs["accelerator"] = "ddp"
-    trainer_kwargs["gpus"] = args.gpus if args.gpus is not None else None
-    from pytorch_lightning.plugins import DDPPlugin
-    trainer_kwargs["plugins"] = DDPPlugin(find_unused_parameters=False)
+    #
+    # Set GPU configuration
+    if args.gpus is not None and len(args.gpus) > 1:
+        trainer_kwargs["accelerator"] = "ddp"  # Specify that you're using GPUs
+        trainer_kwargs["gpus"] = args.gpus  # Specify the GPUs to use
+        from pytorch_lightning.plugins import DDPPlugin
+        trainer_kwargs["plugins"] = DDPPlugin(find_unused_parameters=False)  # Use DDPPlugin for distributed training
+    elif args.gpus is not None and len(args.gpus) == 1:
+        trainer_kwargs["accelerator"] = "gpu"
+        trainer_kwargs["gpus"] = args.gpus
+    else:
+        trainer_kwargs["accelerator"] = "cpu"
+        trainer_kwargs["devices"] = 1
     #
     trainer_kwargs["profiler"] = "simple" if args.profile else False
     trainer_kwargs["weights_summary"] = "full"

@@ -2,6 +2,7 @@ import logging
 import os
 import pytorch_lightning as pl
 import torch
+from aegnn.utils.callbacks.model_io import save_model
 
 
 class FullModelCheckpoint(pl.callbacks.ModelCheckpoint):
@@ -11,8 +12,9 @@ class FullModelCheckpoint(pl.callbacks.ModelCheckpoint):
         trainer.dev_debugger.track_checkpointing_history(filepath)
         if trainer.should_rank_save_checkpoint:
             self._fs.makedirs(os.path.dirname(filepath), exist_ok=True)
-
-            torch.save(trainer.model.state_dict(), filepath)
+            
+            save_model(trainer, filepath)
+            
             logging.debug(f"Save model checkpoint @ {filepath}")
             
         # Ensure all processes wait until the checkpoint is saved
