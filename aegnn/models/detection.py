@@ -37,7 +37,7 @@ class DetectionModel(pl.LightningModule):
 
         # Define network architecture by name.
         model_input_shape = torch.tensor(img_shape + (dim, ), device=self.device)
-        self.model = model_by_name(network)(dataset, model_input_shape, num_outputs=num_classes, **model_kwargs)
+        self.model = model_by_name(network)(dataset, model_input_shape, num_outputs=num_outputs, **model_kwargs)
         
         # Additional arguments for optimization and logging.
         self.optimizer_kwargs = dict(lr=learning_rate)
@@ -76,6 +76,7 @@ class DetectionModel(pl.LightningModule):
         for name, value in losses_dict.items():
             self.log(f"Train/Loss-{name.capitalize()}", value, on_step=True, on_epoch=True)
         
+        self.log("Train/Loss", loss, on_step=True, on_epoch=True)
         self.log("Train/IOU", iou.mean(), on_step=True, on_epoch=True)
         self.log("Train/Accuracy", train_accuracy, on_step=True, on_epoch=True)
         self.log("Train/mAP", train_map, on_step=True, on_epoch=True)
@@ -103,7 +104,27 @@ class DetectionModel(pl.LightningModule):
         return outputs
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), weight_decay=1e-4, **self.optimizer_kwargs)
+        optimizer = torch.optim.Adam(self.parameters(), weight_decay=1e-4, **self.optimizer_kwargs)
+        
+        # ReduceLROnPlateau scheduler with patience of 2 and factor of 0.1
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, 
+            mode='min',          # Reduce LR when the monitored value stops decreasing
+            factor=0.8,          # Factor by which the learning rate will be reduced
+            patience=800,          # Number of epochs with no improvement after which learning rate will be reduced
+            verbose=True         # Prints a message when the learning rate is reduced
+        )
+
+        return {
+            'optimizer': optimizer,
+            'lr_scheduler': {
+                'scheduler': scheduler,
+                'monitor': 'Train/Loss',  # Monitor validation loss
+                'interval': 'step',     # Step the scheduler after every validation step
+                'frequency': 1,         # Step after every single validation step
+                'strict': False         # skip if metric is currently not available
+            },
+        }
 
     ###############################################################################################
     # Parsing #####################################################################################

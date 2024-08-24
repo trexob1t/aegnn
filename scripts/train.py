@@ -17,6 +17,7 @@ def parse_args():
 
     # Add this line to include a checkpoint argument
     parser.add_argument("--checkpoint", type=str, default=None, help="Path to a specific checkpoint to load")
+    parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate of the model during training")
 
     group = parser.add_argument_group("Trainer")
     group.add_argument("--max-epochs", default=150, type=int)
@@ -53,7 +54,7 @@ def main(args):
         model = load_model(args=args, dm=dm)
     else:
         model = aegnn.models.by_task(args.task)(args.model, args.dataset, num_classes=dm.num_classes,
-                                            img_shape=dm.dims, dim=args.dim, bias=True, root_weight=True)
+                                            img_shape=dm.dims, dim=args.dim, learning_rate=args.lr, bias=True, root_weight=True)
 
     if not args.debug:
         wandb_logger = pl.loggers.WandbLogger(project=project, save_dir=log_dir, settings=log_settings)
