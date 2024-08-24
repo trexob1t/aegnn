@@ -76,6 +76,7 @@ class DetectionModel(pl.LightningModule):
         for name, value in losses_dict.items():
             self.log(f"Train/Loss-{name.capitalize()}", value, on_step=True, on_epoch=True)
         
+        self.log("Train/Loss", loss, on_step=True, on_epoch=True)
         self.log("Train/IOU", iou.mean(), on_step=True, on_epoch=True)
         self.log("Train/Accuracy", train_accuracy, on_step=True, on_epoch=True)
         self.log("Train/mAP", train_map, on_step=True, on_epoch=True)
@@ -109,8 +110,8 @@ class DetectionModel(pl.LightningModule):
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, 
             mode='min',          # Reduce LR when the monitored value stops decreasing
-            factor=0.1,          # Factor by which the learning rate will be reduced
-            patience=214,          # Number of epochs with no improvement after which learning rate will be reduced
+            factor=0.8,          # Factor by which the learning rate will be reduced
+            patience=800,          # Number of epochs with no improvement after which learning rate will be reduced
             verbose=True         # Prints a message when the learning rate is reduced
         )
 
@@ -118,7 +119,7 @@ class DetectionModel(pl.LightningModule):
             'optimizer': optimizer,
             'lr_scheduler': {
                 'scheduler': scheduler,
-                'monitor': 'Val/Loss',  # Monitor validation loss
+                'monitor': 'Train/Loss',  # Monitor validation loss
                 'interval': 'step',     # Step the scheduler after every validation step
                 'frequency': 1,         # Step after every single validation step
                 'strict': False         # skip if metric is currently not available
