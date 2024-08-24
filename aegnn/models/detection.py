@@ -121,6 +121,7 @@ class DetectionModel(pl.LightningModule):
                 'monitor': 'Val/Loss',  # Monitor validation loss
                 'interval': 'step',     # Step the scheduler after every validation step
                 'frequency': 1,         # Step after every single validation step
+                'strict': False         # skip if metric is currently not available
             },
         }
 
