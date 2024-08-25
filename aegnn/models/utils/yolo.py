@@ -16,5 +16,7 @@ def yolo_grid(input_shape: torch.Tensor, cell_map_shape: torch.Tensor) -> torch.
     cell_top_left = torch.meshgrid([
         torch.arange(0, end=num_cells[0] - 1e-3, step=cell_shape[0], device=cell_shape.device),
         torch.arange(0, end=num_cells[1] - 1e-3, step=cell_shape[1], device=cell_shape.device)
-    ])
+    ],
+        indexing='ij'  # Added indexing argument to eliminate the warning
+    )
     return torch.stack(cell_top_left, dim=-1)
