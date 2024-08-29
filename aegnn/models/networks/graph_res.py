@@ -27,6 +27,10 @@ class GraphRes(torch.nn.Module):
             kernel_size = 8
             n = [1, 16, 32, 32, 32, 128, 128, 128]
             pooling_outputs = 128
+        elif dataset == "ball":
+            kernel_size = 4
+            n = [1, 16, 32, 32, 32, 64, 64, 64]
+            pooling_outputs = 64
         else:
             raise NotImplementedError(f"No model parameters for dataset {dataset}")
 
