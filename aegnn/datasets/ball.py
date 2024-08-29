@@ -7,9 +7,11 @@ import h5py
 import torch
 from torch_geometric.data import Data
 from torch_geometric.nn.pool import radius_graph
-from typing import List, Optional
+from typing import List, Optional, Callable
 import numpy as np
 import pickle
+
+from .utils.normalization import normalize_time
 
 class Ball(EventDataModule):
     def __init__(self, 
@@ -18,19 +20,7 @@ class Ball(EventDataModule):
                  num_workers: int = 8, 
                  pin_memory: bool = False, 
                  transform: Optional[Callable[[Data], Data]] = None):
-        """
-        Initialize the Ball dataset class with HD image size and other parameters.
-        
-        :param batch_size: The size of batches for the dataloader.
-        :param shuffle: Whether to shuffle the data during training.
-        :param num_workers: Number of workers for data loading.
-        :param pin_memory: Whether to use pinned memory for data loading.
-        :param transform: Optional transformation to apply to data samples.
-        """
-        
         img_shape = (1280, 720)
-        
-        # Initialize the parent class (EventDataModule) with the appropriate parameters
         super(Ball, self).__init__(
             img_shape=img_shape,
             batch_size=batch_size,
@@ -39,15 +29,12 @@ class Ball(EventDataModule):
             pin_memory=pin_memory,
             transform=transform
         )
-
-        # Additional initialization specific to Ball, if needed
-        # For example, setting hyperparameters or dataset-specific settings
         self.save_hyperparameters({
             "preprocessing": {
-                "r": 3.0,  # Radius for graph construction, adjust as needed
-                "d_max": 128,  # Maximum number of neighbors for graph edges
-                "n_samples": 25000,  # Number of samples (events) per graph
-                "sampling": True  # Whether to subsample events
+                "r": 3.0,
+                "d_max": 128,
+                "n_samples": 25000,
+                "sampling": True
             }
         })
 
@@ -61,106 +48,110 @@ class Ball(EventDataModule):
             self._processing(rf, self.root)
 
     def _processing(self, rf: str, root: str):
-        # Load data using the HDF5Loader
-        hdf5_loader = self.HDF5Loader(rf)
+        # Load data from HDF5 using custom loader
+        loader = self.HDF5Loader(rf)
+        event_x, event_y, event_t = loader.get_position()
+        gt_x, gt_y, gt_t = loader.get_bbox_position()
 
-        # Retrieve event data and ground truth bounding boxes
-        event_x, event_y, event_t = hdf5_loader.get_position()
-        gt_x, gt_y, gt_t = hdf5_loader.get_bbox_position()
+        # Format bounding boxes into (ts, x, y, w, h, class_id) - assuming single class "ball"
+        # Width and height are set to 1 for simplicity; adjust if actual size data is available.
+        bbox = np.column_stack((gt_t, gt_x, gt_y, np.ones(len(gt_t)), np.ones(len(gt_t)), np.zeros(len(gt_t))))
 
-        # Access hyperparameters
-        params = self.hparams['preprocessing']
-        radius = params['r']
-        max_neighbors = params['d_max']
-        num_samples = params['n_samples']
-        sampling = params['sampling']
+        # Convert bounding boxes to a tensor
+        bbox_tensor = torch.tensor(bbox, dtype=torch.float)
 
-        # Prepare graph data
-        pos = torch.tensor(np.vstack((event_x, event_y, event_t)).T, dtype=torch.float32)
+        # Labels (assuming one class: 'ball')
+        labels = np.array([0] * len(gt_x))  # Class ID for 'ball'
 
-        # If subsampling is enabled and there are more events than num_samples, perform subsampling
-        if sampling and len(event_x) > num_samples:
-            indices = np.random.choice(len(event_x), size=num_samples, replace=False)
-            pos = pos[indices]
+        # Raw event data (assumed indices and counts)
+        raw_start = 0
+        raw_num_events = len(event_x)  # Total number of events
+        raw_data = (raw_start, raw_num_events)  # (start index, count)
 
-        # Node features
-        x = torch.ones((pos.shape[0], 1), dtype=torch.float32)  # Node features (e.g., ones or other relevant features)
+        # Sub-sample events or use all events (based on 'n_samples' parameter)
+        num_samples = self.hparams['preprocessing']['n_samples']
+        if raw_num_events > num_samples:
+            sample_idx = np.random.choice(np.arange(raw_num_events), size=num_samples, replace=False)
+        else:
+            sample_idx = np.arange(raw_num_events)  # Use all events if fewer than the sample size
 
-        # Create edges based on spatial proximity using radius graph
-        edge_index = radius_graph(pos[:, :2], r=radius, max_num_neighbors=max_neighbors)
+        # Prepare positions array including time normalization
+        pos = np.column_stack((event_x, event_y, event_t))
+        pos = torch.tensor(pos[sample_idx], dtype=torch.float)
+        pos[:, 2] = normalize_time(pos[:, 2])
 
-        # Prepare bounding box data (assuming gt_x, gt_y are centers and other values can be added as required)
-        bbox = torch.tensor(np.vstack((gt_x, gt_y, np.zeros_like(gt_x), np.zeros_like(gt_y), np.zeros_like(gt_x))).T, dtype=torch.long)
-        y = bbox[:, -1]  # Assuming the last column is the class_id
+        # Generate graph edges with radius_graph
+        edge_index = radius_graph(pos, r=self.hparams['preprocessing']['r'], 
+                                max_num_neighbors=self.hparams['preprocessing']['d_max'])
 
-        # Labels - creating a list of labels based on the class_id (here a static label is used as a placeholder)
-        label = ['ball' for _ in range(bbox.shape[0])]
+        # Create the sample dictionary for saving
+        sample_dict = {
+            'bbox': bbox_tensor,  # Bounding boxes
+            'label': labels,      # Labels
+            'raw_file': rf,       # File path for reference
+            'raw': raw_data,      # Raw event data indices
+            'sample_idx': sample_idx,  # Sample indices
+            'edge_index': edge_index.cpu()  # Edge indices for the graph
+        }
 
-        # Create Data object
-        data = Data(x=x, pos=pos[:, :2], edge_index=edge_index, bbox=bbox, y=y, label=label)
-
-        # Include the file identifier
-        data.file_id = rf
-
-        # Define the output path and save the processed file
+        # Save processed data to a pickle file
         processed_dir = os.path.join(root, "processed")
         os.makedirs(processed_dir, exist_ok=True)
         processed_file = os.path.join(processed_dir, os.path.basename(rf).replace(".hdf5", ".pkl"))
-
         with open(processed_file, 'wb') as f:
-            pickle.dump(data, f)
-
-
+            pickle.dump(sample_dict, f)
 
     def _load_processed_file(self, f_path: str) -> Data:
-        """
-        Load pre-processed file to a Data object.
-
-        The pre-processed file is loaded into a torch-geometric Data object with the required attributes.
-
-        :param f_path: input (absolute) file path of the preprocessed file.
-        :returns: Data(x=[N, 1] (torch.float()), pos=[N, 2] (torch.float()), bbox=[L, 5] (torch.long()), file_id,
-                       y=[L] (torch.long()), label=[L] (list), edge_index=[2, P] (torch.long()))
-        """
         with open(f_path, 'rb') as f:
-            data = pickle.load(f)
+            data_dict = pickle.load(f)
 
-        # Ensure all required attributes are present and correctly shaped
-        assert data.x.shape[1] == 1, "Node features x should have shape [N, 1]"
-        assert data.pos.shape[1] == 2, "Position pos should have shape [N, 2]"
-        assert len(data.bbox.shape) == 2 and data.bbox.shape[1] == 5, "Bounding boxes bbox should have shape [L, 5]"
-        assert data.edge_index.shape[0] == 2, "Edge indices should have shape [2, P]"
-        assert len(data.y) == data.bbox.shape[0], "Labels y should match the number of bounding boxes"
+        # Extract features (x), positions (pos), and edges (edge_index)
+        sample_idx = data_dict['sample_idx']
+        x = torch.tensor(sample_idx, dtype=torch.float32).view(-1, 1)  # Assume x is a single feature for each event
 
-        # Optionally, add other checks or processing steps as needed
-        
+        # Extract positions (x, y, t) and normalize time
+        pos = np.column_stack((data_dict['bbox'][:, 1],  # x
+                               data_dict['bbox'][:, 2],  # y
+                               data_dict['bbox'][:, 0]))  # t (timestamp)
+        pos = torch.tensor(pos, dtype=torch.float32)
+        pos[:, 2] = normalize_time(pos[:, 2])  # Normalize time
+
+        # Extract bounding boxes and convert to tensor of shape [L, 5] (x, y, w, h, class_id)
+        bbox = torch.tensor(data_dict['bbox'][:, 1:6], dtype=torch.long)  # Extract (x, y, w, h, class_id)
+
+        # Labels for bounding boxes
+        y = torch.tensor(data_dict['label'], dtype=torch.long)
+
+        # Edge index (2, P) - connections between nodes
+        edge_index = data_dict['edge_index'].long()
+
+        # Create PyTorch Geometric Data object
+        data = Data(
+            x=x,  # Features of events
+            pos=pos,  # Positions including time
+            edge_index=edge_index,  # Graph structure
+            bbox=bbox,  # Bounding box annotations
+            y=y,  # Labels corresponding to bounding boxes
+            file_id=f_path,  # Optional: Metadata or file identifier
+            label=data_dict['label']  # List of labels
+        )
+
         return data
 
     def raw_files(self, mode: str) -> List[str]:
-        # Fetch raw files in HDF5 format
         return glob.glob(os.path.join(self.root, mode, "*.hdf5"))
 
     def processed_files(self, mode: str) -> List[str]:
-        # Fetch processed files in pickle format
         processed_dir = os.path.join(self.root, "processed")
         return glob.glob(os.path.join(processed_dir, mode, "*.pkl"))
 
     @property
     def classes(self) -> List[str]:
-        return ["ball"]  # Update with your actual class names
+        return ["ball"]
 
     class HDF5Loader:
         def __init__(self, file_path):
             self.file_path = file_path
-            self.event_x = list()
-            self.event_y = list()
-            self.event_t = list()
-            self.event_p = list()
-
-            self.gt_x = list()
-            self.gt_y = list()
-            self.gt_t = list()
-
             with h5py.File(self.file_path, 'r') as hdf5:
                 self.event_x = hdf5['event_x'][:]
                 self.event_y = hdf5['event_y'][:]
