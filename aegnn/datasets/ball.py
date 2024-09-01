@@ -1,4 +1,4 @@
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Optional
 from .base.event_dm import EventDataModule
 from tqdm import tqdm
 from torch_geometric.data import Data
@@ -20,7 +20,7 @@ class Ball(EventDataModule):
         shuffle: bool = True,
         num_workers: int = 8,
         pin_memory: bool = True,
-        transform: Callable[[Any], Any] | None = None,
+        transform: Optional[Callable[[Data], Data]] = None,
     ):
         super().__init__(
             img_shape=(1280, 720),
@@ -33,20 +33,21 @@ class Ball(EventDataModule):
 
         self.radius = 3.0
         self.max_neighbors = 128
-        self.n_samples = 25.000
+        self.n_samples = 25_000
         self.sampling = True
 
     def _prepare_dataset(self, mode: str):
+        print(self.root)  # ; import ipdb; ipdb.set_trace()
         raw_files = self.raw_files(mode)
         print(f"Found {len(raw_files)} files in dataset (mode = {mode})")
         total_bbox_count = self._total_bbox_count(raw_files)
         print(f"Total count of (filtered) bounding boxes = {total_bbox_count}")
 
         for rf in tqdm(raw_files):
-            self._processing(rf, self.root, mode)
+            self._processing(rf, self.root)
 
     def raw_files(self, mode: str) -> List[str]:
-        glob.glob(os.path.join(self.root, mode, "*.hdf5"))
+        return glob.glob(os.path.join(self.root, mode, "*.hdf5"))
 
     def _total_bbox_count(self, raw_files: List[str]) -> int:
         """
@@ -66,7 +67,7 @@ class Ball(EventDataModule):
         data_loader = HDF5Loader(rf)
 
         bounding_boxes = data_loader.get_bbox()
-        labels = np.array(["ball" for i in range(len(bounding_boxes[0]))])
+        labels = np.array(["ball" for i in range(len(bounding_boxes))])
 
         for i, bbox in enumerate(bounding_boxes):
             processed_dir = os.path.join(root, "processed")
@@ -79,8 +80,8 @@ class Ball(EventDataModule):
             # Determine temporal window around current bouding box [t_start, t_end] and all of the bounding boxes within this window
             sample_dict = dict()
             t_bbox = bbox[0]
-            t_start = t_bbox - 100.000
-            t_end = t_bbox + 300.000
+            t_start = t_bbox - 10_000  # we have intervalls of 7000 microseconds
+            t_end = t_bbox + 30_000
             bbox_mask = np.logical_and(
                 t_start < bounding_boxes["t"], bounding_boxes["t"] < t_end
             )
@@ -94,7 +95,7 @@ class Ball(EventDataModule):
             sample_dict["raw"] = (idx_start, end_idx)
 
             # Continue if the number of events is too small (end or start of file)
-            if data.size < 4.000:
+            if data.size < 4_000:
                 continue
 
             # normalize data to same number of events per sample
@@ -152,6 +153,14 @@ class Ball(EventDataModule):
         pos = torch.stack([x, y, t], dim=1)
         return Data(x=p, pos=pos, **kwargs)
 
+    def processed_files(self, mode: str) -> List[str]:
+        processed_dir = os.path.join(self.root, "processed")
+        return glob.glob(os.path.join(processed_dir, mode, "*.pkl"))
+
+    @property
+    def classes(self) -> List[str]:
+        return ["ball"]
+
 
 class HDF5Loader:
     def __init__(self, file_path: str):
@@ -195,7 +204,7 @@ class HDF5Loader:
 
         return start_idx, end_index, self.get_events()[start_idx:end_index]
 
-    def seek_time(self, start_time: float, term_criterion: int = 100.000) -> int:
+    def seek_time(self, start_time: float, term_criterion: int = 100_000) -> int:
         """
         Find the index of the closest time in the event data for start_time
 
@@ -296,10 +305,10 @@ class HDF5Loader:
                 self.gt_y = hdf5["gt_y"][:]
                 self.gt_t = hdf5["gt_t"][:]
 
-                # Translate from unix epoch time to real microseconds in dataset
-                min_event_t = self.event_t[0]
-                self.event_t = self.event_t - min_event_t
-                self.gt_t = self.gt_t - min_event_t
+            # Translate from unix epoch time to real microseconds in dataset
+            min_event_t = self.event_t[0]
+            self.event_t = self.event_t - min_event_t
+            self.gt_t = self.gt_t - min_event_t
 
         def get_events(self) -> Tuple[List[float], List[int], List[int], List[int]]:
             """
