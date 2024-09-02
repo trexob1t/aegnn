@@ -159,7 +159,7 @@ class Ball(EventDataModule):
 
     @property
     def classes(self) -> List[str]:
-        return ["ball"]
+        return ["car", "pedestrian", "ball"]
 
 
 class HDF5Loader:
@@ -263,7 +263,7 @@ class HDF5Loader:
         bboxes["y"] = np.array(gt_y, dtype=np.uint16)
         bboxes["w"] = np.full(len(gt_t), 10, dtype=np.uint16)
         bboxes["h"] = np.full(len(gt_t), 10, dtype=np.uint16)
-        bboxes["class_id"] = np.full(len(gt_t), 0, dtype=np.uint16)
+        bboxes["class_id"] = np.full(len(gt_t), 2, dtype=np.uint16) # 0 car, 1 pedestrian, 2 ball
 
         return bboxes
 

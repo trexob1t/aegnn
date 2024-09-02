@@ -14,6 +14,7 @@ from .utils.iou import compute_iou
 from .utils.map import compute_map
 from .utils.yolo import yolo_grid
 from .networks import by_name as model_by_name
+from torch.optim.lr_scheduler import StepLR
 
 class DetectionModel(pl.LightningModule):
 
@@ -106,23 +107,15 @@ class DetectionModel(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), weight_decay=1e-4, **self.optimizer_kwargs)
         
-        # ReduceLROnPlateau scheduler with patience of 2 and factor of 0.1
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, 
-            mode='min',          # Reduce LR when the monitored value stops decreasing
-            factor=0.8,          # Factor by which the learning rate will be reduced
-            patience=800,          # Number of epochs with no improvement after which learning rate will be reduced
-            verbose=True         # Prints a message when the learning rate is reduced
-        )
+        scheduler = StepLR(optimizer, step_size=20, gamma=0.1)  # Reduces LR by factor of 0.1 every 20 epochs
 
         return {
             'optimizer': optimizer,
             'lr_scheduler': {
                 'scheduler': scheduler,
-                'monitor': 'Train/Loss',  # Monitor validation loss
-                'interval': 'step',     # Step the scheduler after every validation step
-                'frequency': 1,         # Step after every single validation step
-                'strict': False         # skip if metric is currently not available
+                'interval': 'epoch',  # Step the scheduler every epoch
+                'frequency': 1,       # Apply scheduler every epoch
+                'strict': False       # Skip if metric is currently not available
             },
         }
 
