@@ -66,7 +66,7 @@ class BBoxLogger(pl.callbacks.base.Callback):
         img_shape = getattr(model, "input_shape", None)
 
         with torch.no_grad():
-            bbox = model.detect_nms(getattr(batch, "outputs"), threshold=0.01)
+            bbox = model.detect_nms(getattr(batch, "outputs"))
 
         images = []
         for i, data in enumerate(batch.to_data_list()):
