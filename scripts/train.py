@@ -29,6 +29,14 @@ def parse_args():
         default=None,
         help="Path to a specific checkpoint to load",
     )
+
+    # Add this line in the parse_args() function
+    parser.add_argument(
+        "--rerun",
+        action="store_true",
+        help="Load only the model weights, not the optimizer state.",
+    )
+
     parser.add_argument(
         "--lr",
         type=float,
@@ -135,7 +143,7 @@ def main(args):
     trainer_kwargs["weights_summary"] = "full"
     trainer_kwargs["track_grad_norm"] = 2 if args.log_gradients else -1
 
-    if args.checkpoint is not None:
+    if args.checkpoint is not None and not args.rerun:
         trainer_kwargs["resume_from_checkpoint"] = args.checkpoint
 
     trainer = pl.Trainer.from_argparse_args(
