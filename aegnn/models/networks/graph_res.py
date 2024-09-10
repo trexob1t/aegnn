@@ -23,7 +23,7 @@ class GraphRes(torch.nn.Module):
             kernel_size = 2
             n = [1, 8, 16, 16, 16, 32, 32, 32, 32]
             pooling_outputs = 32
-        elif dataset == "ncaltech101" or dataset == "gen1":
+        elif dataset == "ncaltech101" or dataset == "gen1" or dataset == "ball":
             kernel_size = 8
             n = [1, 16, 32, 32, 32, 128, 128, 128]
             pooling_outputs = 128

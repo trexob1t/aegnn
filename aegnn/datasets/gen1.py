@@ -162,7 +162,7 @@ class Gen1(EventDataModule):
 
     @property
     def classes(self) -> List[str]:
-        return ["car", "pedestrian"]
+        return ["car", "pedestrian", "ball"]
 
 
 #########################################################################################################
